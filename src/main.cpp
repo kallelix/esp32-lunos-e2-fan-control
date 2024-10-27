@@ -1,19 +1,31 @@
 #include <Arduino.h>
 #include <WebServer.h>
-//#include <AsyncJson.h>
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
 #include "pinout.h"
+#include <Preferences.h>
+
+#define DEBUG
+
+#ifdef DEBUG
+#define PRINT(x) Serial.print(x)
+#else
+#define PRINT(x)
+#endif
+
+#ifdef DEBUG
+#define PRINTLN(x) Serial.println(x)
+#else
+#define PRINTLN(x)
+#endif
 
 // Web server running on port 80
 WebServer server(80);
-JsonDocument jsonDocument;
-char buffer[250];
+Preferences preferences;
+String hostname;
 
 // The max duty cycle value based on PWM resolution (will be 255 if resolution is 8 bits)
 const int MAX_DUTY_CYCLE = (int)(pow(2, PWM_RESOLUTION) - 1);
-// const int MIN_DUTY_CYCLE = (int)(0);
-// const int HALF_DUTY_CYCLE = (int)(MAX_DUTY_CYCLE/2);
 
 // a channel pair for two fans
 struct pwm_channel_pair
@@ -37,82 +49,132 @@ typedef struct
   int power;
   // cycle time
   int cycle_time_ms;
+  // direction modifier fan1
+  int direction1;
+  // direction modifier fan2
+  int direction2;
 
   pwm_channel_pair pair;
 
 } Scenario;
 
-const int DEFAULT_RAMP_DELAY_MS = 20; // delay between fade increments
-const int DEFAULT_CYCLE_DELAY_MS = 15000;
+const int DEFAULT_RAMP_DELAY_MS = 40; // delay between fade increments
+const int DEFAULT_CYCLE_DELAY_MS = 30000;
 
-Scenario off = {DEFAULT_RAMP_DELAY_MS, 1, 0, DEFAULT_CYCLE_DELAY_MS};
-Scenario highest = {DEFAULT_RAMP_DELAY_MS, 1, 100, DEFAULT_CYCLE_DELAY_MS};
-Scenario high = {DEFAULT_RAMP_DELAY_MS, 1, 70, DEFAULT_CYCLE_DELAY_MS};
-Scenario low = {DEFAULT_RAMP_DELAY_MS, 1, 30, DEFAULT_CYCLE_DELAY_MS};
+Scenario off = {DEFAULT_RAMP_DELAY_MS, 4, 0, DEFAULT_CYCLE_DELAY_MS, 1, -1};
+Scenario highest = {DEFAULT_RAMP_DELAY_MS, 4, 100, DEFAULT_CYCLE_DELAY_MS, 1, -1};
+Scenario high = {DEFAULT_RAMP_DELAY_MS, 4, 70, DEFAULT_CYCLE_DELAY_MS, 1, -1};
+Scenario low = {DEFAULT_RAMP_DELAY_MS, 4, 30, DEFAULT_CYCLE_DELAY_MS, 1, -1};
 
 TaskHandle_t Task_living_room;
 Scenario Scenario_living_room;
 
 void TaskFanCycle(void *parameter);
 void setSpeed(pwm_channel_pair pair, int relativspeed);
-void getFan();
-void handlePost();
+void getInfo();
+void handleSet();
+void handleConfig();
+void handleClear();
 
 void setup_routing() {     
-  //server.on("/temperature", getTemperature);     
-  //server.on("/pressure", getPressure);     
-  //server.on("/humidity", getHumidity);     
-  server.on("/fan", getFan);     
-  server.on("/set", HTTP_POST, handlePost);    
+  server.on("/info", getInfo);     
+  server.on("/set", HTTP_POST, handleSet);    
+  server.on("/config", HTTP_POST, handleConfig);    
+  server.on("/clear", HTTP_POST, handleClear);    
           
   server.begin();    
 }
 
-void create_json(const char *tag, const float value, const char *unit) {  
-  jsonDocument.clear();
-  jsonDocument["type"] = tag;
-  jsonDocument["value"] = value;
-  jsonDocument["unit"] = unit;
-  serializeJson(jsonDocument, buffer);  
-}
-
-void add_json_object(const char *tag, const float value, const char *unit) {
-  JsonObject obj = jsonDocument.add<JsonObject>();
+void add_json_object(JsonDocument& doc, const char *tag, const float value, const char *unit) {
+  JsonObject obj = doc.add<JsonObject>();
   obj["type"] = tag;
   obj["value"] = value;
   obj["unit"] = unit; 
 }
 
-void getFan() {
-  Serial.println("Get Fan Data");
-  jsonDocument.clear();
-  add_json_object("power", Scenario_living_room.power, "%");
-  add_json_object("cycle", Scenario_living_room.cycle_time_ms, "ms");
-  serializeJson(jsonDocument, buffer);
-  server.send(200, "application/json", buffer);
+void getInfo() {
+  String json;
+  JsonDocument doc;
+  PRINTLN("Get Fan Data");
+  add_json_object(doc, "power", Scenario_living_room.power, "%");
+  add_json_object(doc, "cycle", Scenario_living_room.cycle_time_ms, "ms");
+  serializeJson(doc, json);
+  server.send(200, "application/json", json);
 }
 
-void handlePost() {
+void handleSet() {
   if (server.hasArg("plain") == false) {
+    server.send(400, "application/json", "{}");
   }
+  else
+  {
+  JsonDocument doc;
   String body = server.arg("plain");
-  deserializeJson(jsonDocument, body);
+  deserializeJson(doc, body);
 
-  int power = jsonDocument["power"];
-  int cycle = jsonDocument["cycle"];
+  int power = doc["power"];
+  int cycle = doc["cycle"];
   
   Scenario_living_room.power = power;
   Scenario_living_room.cycle_time_ms = cycle;
 
   server.send(200, "application/json", "{}");
+  }
+}
+
+void handleConfig() {
+  if (server.hasArg("plain") == false) {
+    server.send(400, "application/json", "{}");
+  }
+  else
+  {
+  JsonDocument doc;  
+  String body = server.arg("plain");
+  deserializeJson(doc, body);
+  /*
+  int power = jsonDocument["power"];
+  int cycle = jsonDocument["cycle"];
+  
+  Scenario_living_room.power = power;
+  Scenario_living_room.cycle_time_ms = cycle;
+  */
+  server.send(200, "application/json", "{}");
+  }
+}
+
+void handleClear() {
+  if (server.hasArg("plain") == false) {
+    server.send(400, "application/json", "{}");
+  }
+  else
+  {
+  JsonDocument doc;
+  String body = server.arg("plain");
+  deserializeJson(doc, body);
+  /*
+  int power = jsonDocument["power"];
+  int cycle = jsonDocument["cycle"];
+  
+  Scenario_living_room.power = power;
+  Scenario_living_room.cycle_time_ms = cycle;
+  */
+  server.send(200, "application/json", "{}");
+  }
 }
 
 void setup()
 {
+  preferences.begin("lunos-fan", false);
+  hostname = preferences.getString("hostname","lunos-fan-control");
+  preferences.end();
 
-  Serial.begin(9600);
-  Serial.println("Starting...");
+  #ifdef DEBUG
+    Serial.begin(9600);
+  #endif
+
+  PRINTLN("Starting...");
   WiFiManager wm;
+  wm.setHostname(hostname); 
   wm.autoConnect("AutoConnectAP","password");
 
   // Sets up a channel (0-15), a PWM duty cycle frequency, and a PWM resolution (1 - 16 bits)
@@ -134,19 +196,19 @@ void setup()
 
   xTaskCreate(TaskFanCycle, "CycleLivingRoom", 10000, (void *)&Scenario_living_room, 1, &Task_living_room);
   delay(500);
-  Serial.print("IP Address: ");
-  Serial.println(WiFi.localIP());
+  PRINT("IP Address: ");
+  PRINTLN(WiFi.localIP());
   setup_routing();
 }
 
 void TaskFanCycle(void *parameter)
 {
   Scenario *data = (Scenario *)parameter;
-  Serial.print("Task FanCycle running on core ");
-  Serial.println(xPortGetCoreID());
+  PRINT("Task FanCycle running on core ");
+  PRINTLN(xPortGetCoreID());
   for (;;)
   {
-    for (int fade = 0; fade <= data->power; fade++)
+    for (int fade = 0; fade <= data->power; fade+=data->ramp_step)
     {
       setSpeed(data->pair, fade);
       delay(data->ramp_delay_ms);
@@ -154,7 +216,7 @@ void TaskFanCycle(void *parameter)
 
     delay(data->cycle_time_ms);
 
-    for (int fade = data->power; fade >= (-1 * data->power); fade--)
+    for (int fade = data->power; fade >= (-1 * data->power); fade-=data->ramp_step)
     {
       setSpeed(data->pair, fade);
       delay(data->ramp_delay_ms);
@@ -162,7 +224,7 @@ void TaskFanCycle(void *parameter)
 
     delay(data->cycle_time_ms);
 
-    for (int fade = (-1 * data->power); fade <= 0; fade++)
+    for (int fade = (-1 * data->power); fade <= 0; fade+=data->ramp_step)
     {
       setSpeed(data->pair, fade);
       delay(data->ramp_delay_ms);
@@ -172,29 +234,27 @@ void TaskFanCycle(void *parameter)
 }
 
 // set relativ speed: -100 to 100
-void setSpeed(pwm_channel_pair pair, int relativspeed)
+void setSpeed(pwm_channel_pair pair, int relativspeed, int direction1, int direction2)
 {
-  int dutyCycle = int(float(relativspeed + 100) / 200.0 * MAX_DUTY_CYCLE);
-  int dutyCycleReverse = int(float(-1 * relativspeed + 100) / 200.0 * MAX_DUTY_CYCLE);
+  int dutyCycle1 = int(float(direction1 * relativspeed + 100) / 200.0 * MAX_DUTY_CYCLE);
+  int dutyCycle2 = int(float(direction2 * relativspeed + 100) / 200.0 * MAX_DUTY_CYCLE);
   
-  ledcWrite(pair.channel_1, dutyCycle);
-  ledcWrite(pair.channel_2, dutyCycleReverse);
-  Serial.print("Relativ: ");
-  Serial.print(relativspeed);
-  Serial.print("Max Duty: ");
-  Serial.print(MAX_DUTY_CYCLE);
-  Serial.print(" set pin1: ");
-  Serial.print(pair.channel_1);
-  Serial.print(" set duty1: ");
-  Serial.print(dutyCycle);
-  Serial.print(" read duty1: ");
-  Serial.print(ledcRead(pair.channel_1));
-  Serial.print(" set pin2: ");
-  Serial.print(pair.channel_2);
-  Serial.print(" duty2: ");
-  Serial.print(dutyCycleReverse);
-  Serial.print(" read duty2: ");
-  Serial.println(ledcRead(pair.channel_2));
+  ledcWrite(pair.channel_1, dutyCycle1);
+  ledcWrite(pair.channel_2, dutyCycle2);
+  PRINT("Relativ: ");
+  PRINT(relativspeed);
+  PRINT("Max Duty: ");
+  PRINT(MAX_DUTY_CYCLE);
+  PRINT(" set pin1: ");
+  PRINT(pair.channel_1);
+  PRINT(" set duty1: ");
+  PRINT(dutyCycle1);
+  PRINT(" set pin2: ");
+  PRINT(pair.channel_2);
+  PRINT(" duty2: ");
+  PRINT(dutyCycle2);
+  PRINT(" read duty2: ");
+  PRINTLN(ledcRead(pair.channel_2));
   }
 
 void loop()
