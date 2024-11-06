@@ -1,0 +1,135 @@
+openapi: 3.0.0
+info:
+  title: Fan Control API
+  description: API for controlling fan pairs
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /info:
+    get:
+      summary: Get fan data
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fanpairs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FanData'
+  /set:
+    post:
+      summary: Set fan data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fanpair:
+                  type: string
+                scenario:
+                  type: string
+                  enum: 
+                    - default
+                    - off
+                    - low
+                    - medium
+                    - high
+                    - highest
+                    - summer
+                    - out
+                power:
+                  type: integer
+                  description: Power percentage
+                  minimum: 0
+                  maximum: 100
+                cycletime:
+                  type: integer
+                  minimum: 0
+                  description: Cycle time in milliseconds
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Bad request
+  /config:
+    post:
+      summary: Set configuration data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                hostname:
+                  type: string
+                fanpairs:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/FanConfig'
+      responses:
+        '200':
+          description: Successful response
+        '400':
+          description: Bad request
+  /clear:
+    post:
+      summary: Clear configuration data
+      responses:
+        '200':
+          description: Configuration cleared successfully
+        '400':
+          description: Bad request
+components:
+  schemas:
+    FanData:
+      type: object
+      properties:
+        fanpair:
+          type: string
+        scenario:
+          type: string
+          enum: 
+            - default
+            - off
+            - low
+            - medium
+            - high
+            - highest
+            - summer
+            - out
+        power:
+          type: integer
+          description: Power percentage
+          minimum: 0
+          maximum: 100
+        cycletime:
+          type: integer
+          description: Cycle time in milliseconds
+    FanConfig:
+      type: object
+      properties:
+        name:
+          type: string
+        pin1:
+          type: string
+        pin2:
+          type: string
+        defaultscenario:
+          type: string
+          enum: 
+            - default
+            - off
+            - low
+            - medium
+            - high
+            - highest
+            - summer
+            - out

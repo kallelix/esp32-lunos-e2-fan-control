@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include "prefs.h"
+
 #ifdef DEBUG
 #define PRINT(x) Serial.print(x)
 #else
@@ -38,8 +38,3 @@ typedef struct
   int pair;
 
 } Scenario;
-
-Scenario off = {DEFAULT_RAMP_DELAY_MS, 4, 0, DEFAULT_CYCLE_DELAY_MS, 1, -1};
-Scenario highest = {DEFAULT_RAMP_DELAY_MS, 4, 100, DEFAULT_CYCLE_DELAY_MS, 1, -1};
-Scenario high = {DEFAULT_RAMP_DELAY_MS, 4, 70, DEFAULT_CYCLE_DELAY_MS, 1, -1};
-Scenario low = {DEFAULT_RAMP_DELAY_MS, 4, 30, DEFAULT_CYCLE_DELAY_MS, 1, -1};
