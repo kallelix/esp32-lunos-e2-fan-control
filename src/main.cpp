@@ -1,77 +1,260 @@
-#include <Arduino.h>
-const int PWM_CHANNEL1 = 0;    // ESP32 has 16 channels which can generate 16 independent waveforms
-const int PWM_CHANNEL2 = 1;    // ESP32 has 16 channels which can generate 16 independent waveforms
-const int PWM_FREQ = 5000;     // Recall that Arduino Uno is ~490 Hz. Official ESP32 example uses 5,000Hz
-const int PWM_RESOLUTION = 8; // We'll use same resolution as Uno (8 bits, 0-255) but ESP32 can go up to 16 bits 
+#include "main.h"
+#include <WebServer.h>
+#include <ArduinoJson.h>
+#include <WiFiManager.h>
+#include "settings.h"
 
-// The max duty cycle value based on PWM resolution (will be 255 if resolution is 8 bits)
-const int MAX_DUTY_CYCLE = (int)(pow(2, PWM_RESOLUTION) - 1); 
-const int MIN_DUTY_CYCLE = (int)(0); 
-const int HALF_DUTY_CYCLE = (int)(MAX_DUTY_CYCLE/2); 
+// Web server running on port 80
+WebServer server(80);
 
-// Lüfter mit Drehrichtungsumkehr. 0% - 45% PWM über Stege blasend, 55% - 100% über Stege saugend.
+TaskHandle_t tasks[5];
+Scenario pairs[5];
 
-// The pin numbering on the Huzzah32 is a bit strange so always helps to consult the pin diagram
-// See pin diagram here: https://makeabilitylab.github.io/physcomp/esp32/
-const int LED1_OUTPUT_PIN = 16;
-const int FAN1_OUTPUT_PIN = 17;
-const int LED2_OUTPUT_PIN = 18;
-const int FAN2_OUTPUT_PIN = 19;
+void setScenario(int pair, int scenario)
+{
+  switch (scenario)
+  {
+  case SCENARIO_LOW:
+    pairs[pair].power = 30;
+    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = -1;
+    break;
+  case SCENARIO_MID:
+    pairs[pair].power = 50;
+    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = -1;
+    break;
+  case SCENARIO_HIGH:
+    pairs[pair].power = 70;
+    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = -1;
+    break;
+  case SCENARIO_HIGHEST:
+    pairs[pair].power = 100;
+    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = -1;
+    break;
+  case SCENARIO_OFF:
+    pairs[pair].power = 0;
+    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = -1;
+    break;
+  case SCENARIO_SUMMER:
+    pairs[pair].power = 30;
+    pairs[pair].cycle_time_ms = SUMMER_CYCLE_DELAY_MS;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = -1;
+    break;
+  case SCENARIO_OUT:
+    pairs[pair].power = 30;
+    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = 1;
+    break;
+  default:
+    pairs[pair].power = 30;
+  }
+}
 
-const int RAMP_DELAY_MS = 20;  // delay between fade increments
-const int TARGET_SPEED_DELAY_MS = 5000;
+void getInfo()
+{
+  String json;
+  JsonDocument doc;
+  PRINTLN("Get Fan Data");
+  for (int i = 0; i < prefs.no_pairs; i++)
+  {
+    JsonObject obj = doc["fanpairs"].add<JsonObject>();
+    obj["name"] = prefs.pairs[i].name;
+    obj["power"] = pairs[i].power;
+    obj["cycletime"] = pairs[i].cycle_time_ms;
+  }
+  serializeJson(doc, json);
+  server.send(200, "application/json", json);
+}
 
-void setup() {
+void handleSet()
+{
+  if (server.hasArg("plain") == false)
+  {
+    server.send(400, "application/json", "{}");
+  }
+  else
+  {
+    JsonDocument doc;
+    String body = server.arg("plain");
+    deserializeJson(doc, body);
 
-  Serial.begin(9600);
-  Serial.println("Starting...");
+    String fanpair = doc["fanpair"];
 
-  // Sets up a channel (0-15), a PWM duty cycle frequency, and a PWM resolution (1 - 16 bits) 
-  // ledcSetup(uint8_t channel, double freq, uint8_t resolution_bits);
-  ledcSetup(PWM_CHANNEL1, PWM_FREQ, PWM_RESOLUTION);
-  ledcSetup(PWM_CHANNEL2, PWM_FREQ, PWM_RESOLUTION);
+    for (int i = 0; i < prefs.no_pairs; i++)
+    {
+      if (prefs.pairs[i].name == fanpair)
+      {
+        if (!doc["scenario"].isNull())
+        {
+          String scenario = doc["scenario"];
+          int scenario_int = switchScenario(scenario);
+          setScenario(i, scenario_int);
+        }
+        if (!doc["power"].isNull())
+        {
+          int power = doc["power"];
+          pairs[i].power = power;
+        }
+        if (!doc["cycletime"].isNull())
+        {
+          int cycletime = doc["cycletime"];
+          pairs[i].cycle_time_ms = cycletime;
+        }
+      }
+    }
 
-  // ledcAttachPin(uint8_t pin, uint8_t channel);
-  ledcAttachPin(LED1_OUTPUT_PIN, PWM_CHANNEL1);
-  ledcAttachPin(LED2_OUTPUT_PIN, PWM_CHANNEL2);
-  ledcAttachPin(FAN1_OUTPUT_PIN, PWM_CHANNEL1);
-  ledcAttachPin(FAN2_OUTPUT_PIN, PWM_CHANNEL2);
+    server.send(200, "application/json", "{}");
+  }
+}
+
+void handleConfig()
+{
+  if (server.hasArg("plain") == false)
+  {
+    server.send(400, "application/json", "{}");
+  }
+  else
+  {
+    JsonDocument doc;
+    String body = server.arg("plain");
+    deserializeJson(doc, body);
+    savePrefs(doc);
+    server.send(200, "application/json", "{}");
+  }
+}
+
+void handleClear()
+{
+  if (server.hasArg("plain") == false)
+  {
+    server.send(400, "application/json", "{}");
+  }
+  else
+  {
+    JsonDocument doc;
+    String body = server.arg("plain");
+    deserializeJson(doc, body);
+    clearPrefs();
+    server.send(200, "application/json", "{}");
+  }
+}
+
+void setup_routing()
+{
+  server.on("/info", getInfo);
+  server.on("/set", HTTP_POST, handleSet);
+  server.on("/config", HTTP_POST, handleConfig);
+  server.on("/clear", HTTP_POST, handleClear);
+
+  server.begin();
 }
 
 // set relativ speed: -100 to 100
-void setSpeed(int channel1, int channel2, int relativspeed = 0) {
-  int dutyCycle = int(float(relativspeed+100)/200.0*MAX_DUTY_CYCLE);
-  int dutyCycleReverse = int(float(-1*relativspeed+100)/200.0*MAX_DUTY_CYCLE);;
-  ledcWrite(channel1, dutyCycle);
-  ledcWrite(channel2, dutyCycleReverse);
-  Serial.print("Relativ: ");
-  Serial.print(relativspeed);
-  Serial.print(" duty1: ");
-  Serial.print(dutyCycle);
-  Serial.print(" duty2: ");
-  Serial.println(dutyCycleReverse);
+void setSpeed(int pair, int relativspeed, int direction1, int direction2)
+{
+  int dutyCycle1 = int(float(direction1 * relativspeed + 100) / 200.0 * MAX_DUTY_CYCLE);
+  int dutyCycle2 = int(float(direction2 * relativspeed + 100) / 200.0 * MAX_DUTY_CYCLE);
+  
+  ledcWrite(prefs.pairs[pair].channel1, dutyCycle1);
+  ledcWrite(prefs.pairs[pair].channel2, dutyCycle2);
+  PRINT("Relativ: ");
+  PRINT(relativspeed);
+  PRINT("Max Duty: ");
+  PRINT(MAX_DUTY_CYCLE);
+  PRINT(" set pin1: ");
+  PRINT(prefs.pairs[pair].pin1);
+  PRINT(" set duty1: ");
+  PRINT(dutyCycle1);
+  PRINT(" set pin2: ");
+  PRINT(prefs.pairs[pair].pin2);
+  PRINT(" duty2: ");
+  PRINTLN(dutyCycle2);
 }
 
-void loop() {
+void TaskFanCycle(void *parameter)
+{
+  Scenario *data = (Scenario *)parameter;
+  PRINT("Task FanCycle running on core ");
+  PRINTLN(xPortGetCoreID());
+  for (;;)
+  {
+    for (int fade = 0; fade <= data->power; fade+=data->ramp_step)
+    {
+      setSpeed(data->pair, fade, data->direction1, data->direction2);
+      delay(data->ramp_delay_ms);
+    }
 
-  // fade up PWM on given channel
+    delay(data->cycle_time_ms);
 
-  for(int fade = 0; fade <= 100; fade++){   
-    setSpeed(PWM_CHANNEL1, PWM_CHANNEL2, fade);
-    delay(RAMP_DELAY_MS);
+    for (int fade = data->power; fade >= (-1 * data->power); fade-=data->ramp_step)
+    {
+      setSpeed(data->pair, fade, data->direction1, data->direction2);
+      delay(data->ramp_delay_ms);
+    }
+
+    delay(data->cycle_time_ms);
+
+    for (int fade = (-1 * data->power); fade <= 0; fade+=data->ramp_step)
+    {
+      setSpeed(data->pair, fade, data->direction1, data->direction2);
+      delay(data->ramp_delay_ms);
+    }
+  }
+}
+
+void setup()
+{
+  loadPrefs();
+
+#ifdef DEBUG
+  Serial.begin(9600);
+#endif
+
+  PRINTLN("Starting...");
+  WiFiManager wm;
+  wm.setHostname(prefs.hostname);
+  wm.autoConnect("AutoConnectAP", "password");
+
+  // Sets up a channel (0-15), a PWM duty cycle frequency, and a PWM resolution (1 - 16 bits)
+  // ledcSetup(uint8_t channel, double freq, uint8_t resolution_bits);
+  for (int i = 0; i < prefs.no_pairs; i++)
+  {
+    ledcSetup(prefs.pairs[i].channel1, PWM_FREQ, PWM_RESOLUTION);
+    ledcSetup(prefs.pairs[i].channel2, PWM_FREQ, PWM_RESOLUTION);
+    ledcAttachPin(prefs.pairs[i].pin1, prefs.pairs[i].channel1);
+    ledcAttachPin(prefs.pairs[i].pin2, prefs.pairs[i].channel2);
   }
 
-  delay(TARGET_SPEED_DELAY_MS);
-
-  for(int fade = 100; fade >= -100; fade--){   
-    setSpeed(PWM_CHANNEL1, PWM_CHANNEL2, fade);
-    delay(RAMP_DELAY_MS);
+  // init pairs
+  for (int i = 0; i < prefs.no_pairs; i++)
+  {
+    pairs[i].cycle_time_ms = prefs.cycle_time_ms;
+    pairs[i].ramp_delay_ms = prefs.ramp_delay_ms;
+    pairs[i].ramp_step = prefs.ramp_step;
+    pairs[i].pair = i;
+    pairs[i].direction1 = 1;
+    pairs[i].direction2 = -1;
+    setScenario(i, prefs.pairs[i].scenario);
+    xTaskCreate(TaskFanCycle, "CycleTask", 10000, (void *)&pairs[i], 1, &tasks[i]);
+    delay(500);
   }
+  PRINT("IP Address: ");
+  PRINTLN(WiFi.localIP());
+  setup_routing();
+}
 
-  delay(TARGET_SPEED_DELAY_MS);
-
-  for(int fade = -100; fade <= 0; fade++){   
-    setSpeed(PWM_CHANNEL1, PWM_CHANNEL2, fade);
-    delay(RAMP_DELAY_MS);
-  }
+void loop()
+{
+  server.handleClient();
 }
