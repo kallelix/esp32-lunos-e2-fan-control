@@ -1,22 +1,12 @@
 # Lunos e2 Fan Control
 
-This project provides an API for controlling Lunos e2 fan pairs on a esp32.
+This project provides an API for controlling Lunos e2 fan pairs on a esp32 without further hardware than a little driver circuit.
 
-## Installation
+## Circuit
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/kallelix/fan-control.git
-   ```
-2. Navigate to the project directory:
-   ```sh
-   cd lunos-e2-fan-control
-   ```
-3. Install the required dependencies:
-   ```sh
-   # Assuming you are using PlatformIO
-   pio run
-   ```
+![circuit](https://github.com/kallelix/Fan-Control/blob/main/circuit_for_one_fan_pair.png?raw=true)
+
+
 
 ## Usage
 
