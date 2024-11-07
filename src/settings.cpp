@@ -3,15 +3,18 @@
 #include <Preferences.h>
 #include <WiFiManager.h>
 
-const char *NAMESPACE = "lunos-fan";
+const char *NAMESPACE = "fan";
 
 Preferences preferences;
 
+Prefs prefs = {"lunos-fan-control", 0, {{"pair1",0,1,3,4,SCENARIO_DEFAULT},{"pair2",2,3,0,0,SCENARIO_DEFAULT},{"pair3",4,5,0,0,SCENARIO_DEFAULT},{"pair4",6,7,0,0,SCENARIO_DEFAULT},{"pair5",8,9,0,0,SCENARIO_DEFAULT}}, DEFAULT_RAMP_DELAY_MS, DEFAULT_RAMP_STEP, DEFAULT_CYCLE_DELAY_MS};
+
 void loadPrefs()
 {
-  preferences.begin(NAMESPACE, false);
+  preferences.begin(NAMESPACE, true);
   prefs.hostname = preferences.getString("hostname", "lunos-fan-control");
-  for (int i = 0; i < preferences.getInt("no_pairs", 1); i++)
+  prefs.no_pairs =preferences.getInt("no_pairs", 0);
+  for (int i = 0; i < prefs.no_pairs; i++)
   {
     prefs.pairs[i].name = preferences.getString(("pairname" + String(i)).c_str(), "pair" + String(i));
     prefs.pairs[i].pin1 = preferences.getInt(("fanpin1" + String(i)).c_str(), 0);
@@ -65,8 +68,11 @@ int switchScenario(String scenario)
   return SCENARIO_DEFAULT;
 }
 
-void savePrefs(JsonDocument doc)
+String savePrefs(JsonDocument doc)
 {
+  String result = "nop";
+  JsonDocument rdoc;
+  
   preferences.begin(NAMESPACE, false);
 
   if (!doc["hostname"].isNull())
@@ -76,10 +82,15 @@ void savePrefs(JsonDocument doc)
     preferences.putString("hostname", hostname);
     WiFiManager wm;
     wm.setHostname(hostname);
+    rdoc["hostname"] = hostname;
   }
   if (!doc["fanpairs"].isNull())
   {
-    for (int i = 0; i < doc["fanpairs"].size(); i++)
+    int size = doc["fanpairs"].size();
+    prefs.no_pairs = size;
+    preferences.putInt("no_pairs", prefs.no_pairs);
+    rdoc["no_pairs"] = size;
+    for (int i = 0; i < size; i++)
     {
       String pairname = doc["fanpairs"][i]["name"];
       prefs.pairs[i].name = pairname;
@@ -91,10 +102,14 @@ void savePrefs(JsonDocument doc)
       preferences.putInt(("fanpin1" + String(i)).c_str(), prefs.pairs[i].pin1);
       preferences.putInt(("fanpin2" + String(i)).c_str(), prefs.pairs[i].pin2);
       preferences.putInt(("defaultscenario" + String(i)).c_str(), prefs.pairs[i].scenario);
+      rdoc["pairs"][i]["name"] = pairname;
+      rdoc["pairs"][i]["fanpin1"] = prefs.pairs[i].pin1;
+      rdoc["pairs"][i]["fanpin2"] = prefs.pairs[i].pin2;
+      rdoc["pairs"][i]["defaultscenario"] = scenario;
     }
-    prefs.no_pairs = doc["fanpairs"].size();
-    preferences.putInt("no_pairs", prefs.no_pairs);
   }
 
   preferences.end();
+  serializeJson(rdoc, result);
+  return result;
 }

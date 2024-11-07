@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 
-const int DEFAULT_RAMP_DELAY_MS = 40; // delay between fade increments
+const int DEFAULT_RAMP_DELAY_MS = 80; // delay between fade increments
 const int DEFAULT_RAMP_STEP = 4;
 const int DEFAULT_CYCLE_DELAY_MS = 30000;
 const int SUMMER_CYCLE_DELAY_MS = 600000;
@@ -39,11 +39,9 @@ typedef struct
   int cycle_time_ms;
 } Prefs;
 
-static Prefs prefs = {"lunos-fan-control", 1, {{"pair1",0,1,3,4,SCENARIO_DEFAULT},{"pair2",2,3,0,0,SCENARIO_DEFAULT},{"pair3",4,5,0,0,SCENARIO_DEFAULT},{"pair4",6,7,0,0,SCENARIO_DEFAULT},{"pair5",8,9,0,0,SCENARIO_DEFAULT}}, DEFAULT_RAMP_DELAY_MS, DEFAULT_RAMP_STEP, DEFAULT_CYCLE_DELAY_MS};
-
 int switchScenario(String scenario);
 
 void clearPrefs();
 void loadPrefs();
-void savePrefs(JsonDocument doc);
+String savePrefs(JsonDocument doc);
 int switchScenario(String scenario);

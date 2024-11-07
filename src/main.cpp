@@ -10,6 +10,8 @@ WebServer server(80);
 TaskHandle_t tasks[5];
 Scenario pairs[5];
 
+extern Prefs prefs;
+
 void setScenario(int pair, int scenario)
 {
   switch (scenario)
@@ -66,6 +68,8 @@ void getInfo()
   String json;
   JsonDocument doc;
   PRINTLN("Get Fan Data");
+  doc["hostname"] = prefs.hostname;
+  doc["no_pairs"] = prefs.no_pairs;
   for (int i = 0; i < prefs.no_pairs; i++)
   {
     JsonObject obj = doc["fanpairs"].add<JsonObject>();
@@ -90,11 +94,12 @@ void handleSet()
     deserializeJson(doc, body);
 
     String fanpair = doc["fanpair"];
-
+    String action = "nop";
     for (int i = 0; i < prefs.no_pairs; i++)
     {
       if (prefs.pairs[i].name == fanpair)
       {
+        action = "modified";
         if (!doc["scenario"].isNull())
         {
           String scenario = doc["scenario"];
@@ -114,7 +119,14 @@ void handleSet()
       }
     }
 
-    server.send(200, "application/json", "{}");
+    String json;
+    JsonDocument rdoc;
+    rdoc["fanpair"] = fanpair;
+    rdoc["action"] = action;
+
+    serializeJson(rdoc, json);
+
+    server.send(200, "application/json", json);
   }
 }
 
@@ -129,8 +141,10 @@ void handleConfig()
     JsonDocument doc;
     String body = server.arg("plain");
     deserializeJson(doc, body);
-    savePrefs(doc);
-    server.send(200, "application/json", "{}");
+    String json = savePrefs(doc);
+    server.send(200, "application/json", json);
+    delay(500);
+    ESP.restart();
   }
 }
 
@@ -215,11 +229,12 @@ void TaskFanCycle(void *parameter)
 
 void setup()
 {
-  loadPrefs();
 
 #ifdef DEBUG
   Serial.begin(9600);
 #endif
+
+  loadPrefs();
 
   PRINTLN("Starting...");
   WiFiManager wm;
