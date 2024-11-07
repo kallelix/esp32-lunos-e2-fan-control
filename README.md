@@ -6,7 +6,7 @@ This project provides an API for controlling Lunos e2 fan pairs on a esp32 witho
 
 ![circuit](https://github.com/kallelix/Fan-Control/blob/main/circuit_for_one_fan_pair.png?raw=true)
 
-
+Pin J1 3 and 2 are the input pwm signales from the esp32.
 
 ## Usage
 
