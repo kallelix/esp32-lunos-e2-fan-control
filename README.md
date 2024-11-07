@@ -84,4 +84,3 @@ Pin J1 3 and 2 are the input pwm signales from the esp32.
 ## License
 
 This project is licensed under the MIT License.
-```
