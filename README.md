@@ -1,16 +1,18 @@
 # Lunos e2 Fan Control
-
-This project provides an API for controlling Lunos e2 fan pairs on a esp32 without further hardware than a little driver circuit.
+This project provides an API to control Lunos e2 fan pairs on an esp32 without any hardware other than a small driver circuit.
 
 ## Circuit
-
+Circuit for one fan pair. Pin J1 3 and 2 are the input pwm signales from the esp32.
 ![circuit](https://github.com/kallelix/Fan-Control/blob/main/circuit_for_one_fan_pair.png?raw=true)
 
-Pin J1 3 and 2 are the input pwm signales from the esp32.
-
 ## Usage
+### Setup
+1. Flash Firmeware
+2. WIFI setup with Wifi manager
+3. Config pins with /config endpoint
 
 ### API Endpoints
+API definition in api.yaml
 
 #### Get Fan Data
 - **Endpoint:** `/info`
