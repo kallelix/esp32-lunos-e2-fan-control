@@ -57,13 +57,25 @@ int switchScenario(String scenario)
   {
     return SCENARIO_OFF;
   }
-  else if (scenario == "summer")
+  else if (scenario == "summernight")
   {
-    return SCENARIO_SUMMER;
+    return SCENARIO_SUMMER_NIGHT;
+  }
+  else if (scenario == "night")
+  {
+    return SCENARIO_NIGHT;
   }
   else if (scenario == "out")
   {
     return SCENARIO_OUT;
+  }
+  else if (scenario == "in")
+  {
+    return SCENARIO_IN;
+  }
+  else if (scenario == "shortshootout")
+  {
+    return SCENARIO_SHORT_SHOOTOUT;
   }
   return SCENARIO_DEFAULT;
 }

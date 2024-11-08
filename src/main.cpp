@@ -18,45 +18,77 @@ void setScenario(int pair, int scenario)
   {
   case SCENARIO_LOW:
     pairs[pair].power = 30;
-    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
     pairs[pair].direction1 = 1;
     pairs[pair].direction2 = -1;
+    pairs[pair].ttl = 0;
     break;
   case SCENARIO_MID:
     pairs[pair].power = 50;
-    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
     pairs[pair].direction1 = 1;
     pairs[pair].direction2 = -1;
+    pairs[pair].ttl = 0;
     break;
   case SCENARIO_HIGH:
     pairs[pair].power = 70;
-    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
     pairs[pair].direction1 = 1;
     pairs[pair].direction2 = -1;
+    pairs[pair].ttl = 0;
     break;
   case SCENARIO_HIGHEST:
     pairs[pair].power = 100;
-    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
     pairs[pair].direction1 = 1;
     pairs[pair].direction2 = -1;
+    pairs[pair].ttl = 0;
     break;
   case SCENARIO_OFF:
     pairs[pair].power = 0;
-    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
     pairs[pair].direction1 = 1;
     pairs[pair].direction2 = -1;
+    pairs[pair].ttl = 0;
     break;
-  case SCENARIO_SUMMER:
+  case SCENARIO_SUMMER_NIGHT:
     pairs[pair].power = 30;
     pairs[pair].cycle_time_ms = SUMMER_CYCLE_DELAY_MS;
     pairs[pair].direction1 = 1;
     pairs[pair].direction2 = -1;
+    // 8 hours
+    pairs[pair].ttl = 28800000;
+    break;
+  case SCENARIO_IN:
+    pairs[pair].power = 30;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
+    pairs[pair].direction1 = -1;
+    pairs[pair].direction2 = -1;
+    pairs[pair].ttl = 0;
     break;
   case SCENARIO_OUT:
     pairs[pair].power = 30;
-    pairs[pair].cycle_time_ms = DEFAULT_CYCLE_DELAY_MS;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
     pairs[pair].direction1 = 1;
     pairs[pair].direction2 = 1;
+    pairs[pair].ttl = 0;
+    break;
+  case SCENARIO_SHORT_SHOOTOUT:
+    pairs[pair].power = 100;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
+    pairs[pair].direction1 = 1;
+    pairs[pair].direction2 = 1;
+    // 15 minutes
+    pairs[pair].ttl = 900000;
+    break;
+  case SCENARIO_NIGHT:
+    pairs[pair].power = 25;
+    pairs[pair].cycle_time_ms = prefs.cycle_time_ms;
+    pairs[pair].ramp_delay_ms = prefs.ramp_delay_ms*2;
+    pairs[pair].direction1 = -1;
+    pairs[pair].direction2 = 1;
+    // 8 hours
+    pairs[pair].ttl = 28800000;
     break;
   default:
     pairs[pair].power = 30;
@@ -260,6 +292,8 @@ void setup()
     pairs[i].pair = i;
     pairs[i].direction1 = 1;
     pairs[i].direction2 = -1;
+    pairs[i].ttl = 0;
+
     setScenario(i, prefs.pairs[i].scenario);
     xTaskCreate(TaskFanCycle, "CycleTask", 10000, (void *)&pairs[i], 1, &tasks[i]);
     delay(500);

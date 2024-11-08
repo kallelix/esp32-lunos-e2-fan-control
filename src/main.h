@@ -34,7 +34,9 @@ typedef struct
   int direction1;
   // direction modifier fan2
   int direction2;
-
+  // fan pair
   int pair;
+  // time to live
+  int ttl;
 
 } Scenario;

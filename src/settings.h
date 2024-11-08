@@ -12,8 +12,11 @@ const int SCENARIO_MID = 1;
 const int SCENARIO_HIGH = 2;
 const int SCENARIO_HIGHEST = 3;
 const int SCENARIO_OFF = 4;
-const int SCENARIO_SUMMER = 5;
+const int SCENARIO_SUMMER_NIGHT = 5;
 const int SCENARIO_OUT = 6;
+const int SCENARIO_NIGHT = 7;
+const int SCENARIO_IN = 8;
+const int SCENARIO_SHORT_SHOOTOUT = 9;
 
 typedef struct {
   String name;
