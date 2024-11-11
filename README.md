@@ -1,5 +1,5 @@
 # Lunos e2 Fan Control
-This project provides an API to control Lunos e2 fan pairs on an esp32 without any hardware other than a small driver circuit.
+This project provides an API to control Lunos e2 fan pairs on an esp32 without any hardware other than a small driver circuit. The fan is working like this one in this dataseet: https://www.farnell.com/datasheets/2634798.pdf
 
 ## Circuit
 Circuit for one fan pair. Pin J1 3 and 2 are the input pwm signales from the esp32.
